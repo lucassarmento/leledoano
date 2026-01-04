@@ -1,65 +1,119 @@
-import Image from "next/image";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/db";
+import { profiles, votes } from "@/db/schema";
+import { eq, sql, desc } from "drizzle-orm";
+import { HomePage } from "./home";
 
-export default function Home() {
+async function getLeaderboard() {
+  const currentYear = new Date().getFullYear();
+
+  return db
+    .select({
+      id: profiles.id,
+      name: profiles.name,
+      avatarUrl: profiles.avatarUrl,
+      voteCount: sql<number>`COALESCE(COUNT(${votes.id}), 0)::int`.as(
+        "vote_count"
+      ),
+    })
+    .from(profiles)
+    .leftJoin(
+      votes,
+      sql`${votes.candidateId} = ${profiles.id} AND ${votes.year} = ${currentYear}`
+    )
+    .groupBy(profiles.id)
+    .orderBy(desc(sql`vote_count`), profiles.name);
+}
+
+async function getFeed() {
+  const currentYear = new Date().getFullYear();
+
+  return db.query.votes.findMany({
+    where: eq(votes.year, currentYear),
+    orderBy: desc(votes.createdAt),
+    limit: 20,
+    with: {
+      voter: true,
+      candidate: true,
+    },
+  });
+}
+
+async function getProfile(userId: string) {
+  const result = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+export default async function Page() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const profile = await getProfile(user.id);
+
+  // If user is authenticated but has no profile, create it from allowed_phones
+  if (!profile) {
+    // Get user's phone from Supabase auth
+    const phone = user.phone;
+    if (phone) {
+      // Check allowed_phones for this user's info
+      const allowedResult = await db.execute(
+        sql`SELECT * FROM allowed_phones WHERE phone = ${phone} LIMIT 1`
+      );
+      const allowed = Array.isArray(allowedResult) ? allowedResult[0] : null;
+
+      if (allowed) {
+        // Auto-create profile from allowed_phones data
+        await db.insert(profiles).values({
+          id: user.id,
+          name: (allowed as { name: string }).name,
+          phone: phone,
+          isAdmin: (allowed as { is_admin: boolean }).is_admin || false,
+        }).onConflictDoNothing();
+
+        // Refresh to load the new profile
+        redirect("/");
+      }
+    }
+
+    // If we still can't create a profile, sign out
+    await supabase.auth.signOut();
+    redirect("/login");
+  }
+
+  const [leaderboard, feed] = await Promise.all([getLeaderboard(), getFeed()]);
+
+  const formattedFeed = feed.map((vote) => ({
+    id: vote.id,
+    createdAt: vote.createdAt.toISOString(),
+    voter: {
+      id: vote.voter.id,
+      name: vote.voter.name,
+      avatarUrl: vote.voter.avatarUrl,
+    },
+    candidate: {
+      id: vote.candidate.id,
+      name: vote.candidate.name,
+      avatarUrl: vote.candidate.avatarUrl,
+    },
+  }));
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <HomePage
+      leaderboard={leaderboard}
+      feed={formattedFeed}
+      currentUser={profile}
+    />
   );
 }
