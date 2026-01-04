@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       sql`INSERT INTO allowed_phones (phone, name) VALUES (${phone}, ${name}) RETURNING *`
     );
 
-    const rows = Array.isArray(result) ? result : result.rows || [];
+    const rows = Array.isArray(result) ? result : (result as unknown as { rows: unknown[] }).rows || [];
     return NextResponse.json(rows[0]);
   } catch (error) {
     console.error("Error adding phone:", error);
@@ -78,7 +78,7 @@ export async function GET() {
       sql`SELECT * FROM allowed_phones ORDER BY created_at DESC`
     );
 
-    const rows = Array.isArray(result) ? result : result.rows || [];
+    const rows = Array.isArray(result) ? result : (result as unknown as { rows: unknown[] }).rows || [];
     return NextResponse.json(rows);
   } catch (error) {
     console.error("Error fetching phones:", error);

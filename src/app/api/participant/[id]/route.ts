@@ -208,7 +208,7 @@ export async function GET(
           avatarUrl: v.candidate.avatarUrl,
         },
       })),
-      mutualRivalries: (mutualRivalries.rows || []).map((r: any) => ({
+      mutualRivalries: ((mutualRivalries as unknown as { rows: unknown[] }).rows || []).map((r: any) => ({
         id: r.id,
         name: r.name,
         avatarUrl: r.avatar_url,
@@ -217,7 +217,7 @@ export async function GET(
         total: r.total,
       })),
       funStats: {
-        mostActiveDay: (mostActiveDay.rows?.[0] as any)?.day_name?.trim() || null,
+        mostActiveDay: ((mostActiveDay as unknown as { rows: unknown[] }).rows?.[0] as any)?.day_name?.trim() || null,
       },
     });
   } catch (error) {
