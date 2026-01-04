@@ -3,17 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import Link from "next/link";
 
 type Step = "phone" | "otp";
 
@@ -106,15 +100,17 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-muted/40">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="text-6xl mb-4">🏆</div>
           <CardTitle className="text-2xl">Criar Conta</CardTitle>
           <CardDescription>
             {step === "phone" && "Digite seu telefone"}
             {step === "otp" && `Ola ${userName}! Digite o codigo que enviamos`}
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           {step === "phone" && (
             <form onSubmit={handleSendOtp} className="space-y-4">
@@ -132,7 +128,13 @@ export default function SignupPage() {
                   Apenas telefones autorizados podem criar conta
                 </p>
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Verificando..." : "Continuar"}
               </Button>
@@ -153,28 +155,33 @@ export default function SignupPage() {
                   required
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Entrando..." : "Entrar"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setStep("phone")}
-              >
-                Voltar
-              </Button>
+
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setStep("phone")} className="flex-1">
+                  Voltar
+                </Button>
+                <Button type="submit" className="flex-1" disabled={loading}>
+                  {loading ? "Entrando..." : "Entrar"}
+                </Button>
+              </div>
             </form>
           )}
+        </CardContent>
 
-          <div className="mt-4 text-center text-sm">
+        <CardFooter className="justify-center">
+          <p className="text-sm text-muted-foreground">
             Ja tem conta?{" "}
-            <Link href="/login" className="underline">
+            <Link href="/login" className="text-primary underline-offset-4 hover:underline">
               Entrar
             </Link>
-          </div>
-        </CardContent>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

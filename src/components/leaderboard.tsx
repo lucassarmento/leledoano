@@ -1,9 +1,11 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Candidate = {
   id: string;
@@ -16,14 +18,14 @@ type LeaderboardProps = {
   candidates: Candidate[];
   currentUserId: string;
   onVote: (candidateId: string) => void;
-  loading?: boolean;
+  onVoteWithComment: (candidateId: string) => void;
 };
 
 export function Leaderboard({
   candidates,
   currentUserId,
   onVote,
-  loading,
+  onVoteWithComment,
 }: LeaderboardProps) {
   const getInitials = (name: string) => {
     return name
@@ -42,53 +44,88 @@ export function Leaderboard({
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
-          🏆 Ranking Lele do Ano
+          <span>📊</span>
+          Ranking Completo
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {candidates.length} participantes
+        </p>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {candidates.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">
-            Nenhum participante ainda
-          </p>
-        ) : (
-          candidates.map((candidate, index) => (
-            <div
-              key={candidate.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold w-8 text-center">
-                  {getMedalEmoji(index) || `${index + 1}`}
-                </span>
-                <Avatar>
-                  <AvatarImage src={candidate.avatarUrl || undefined} />
-                  <AvatarFallback>{getInitials(candidate.name)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium">
-                    {candidate.name}
-                    {candidate.id === currentUserId && (
-                      <span className="text-muted-foreground text-sm ml-1">
-                        (voce)
-                      </span>
-                    )}
-                  </p>
-                  <Badge variant="secondary">{candidate.voteCount} votos</Badge>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => onVote(candidate.id)}
-                disabled={loading}
-              >
-                Votar
-              </Button>
+      <CardContent className="p-0 flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          {candidates.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              Nenhum participante ainda
             </div>
-          ))
-        )}
+          ) : (
+            <div className="divide-y">
+              {candidates.map((candidate, index) => (
+                <div
+                  key={candidate.id}
+                  className={`flex items-center justify-between gap-4 p-4 hover:bg-muted/50 transition-colors ${
+                    index === 0 ? "bg-amber-50/50" : ""
+                  }`}
+                >
+                  <Link
+                    href={`/participant/${candidate.id}`}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    {/* Rank */}
+                    <div className="w-8 text-center font-bold text-lg shrink-0">
+                      {getMedalEmoji(index) || `${index + 1}`}
+                    </div>
+
+                    {/* Avatar */}
+                    <Avatar className={`shrink-0 ${index === 0 ? "ring-2 ring-amber-400" : ""}`}>
+                      <AvatarImage src={candidate.avatarUrl || undefined} alt={candidate.name} />
+                      <AvatarFallback>{getInitials(candidate.name)}</AvatarFallback>
+                    </Avatar>
+
+                    {/* Name and votes */}
+                    <div className="min-w-0">
+                      <div className="font-medium truncate hover:underline">
+                        {candidate.name}
+                        {candidate.id === currentUserId && (
+                          <span className="text-muted-foreground text-sm ml-1">(voce)</span>
+                        )}
+                      </div>
+                      <Badge
+                        variant={index === 0 ? "default" : "secondary"}
+                        className={index === 0 ? "bg-amber-500 hover:bg-amber-600" : ""}
+                      >
+                        {candidate.voteCount} votos
+                      </Badge>
+                    </div>
+                  </Link>
+
+                  {/* Vote Buttons */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="active:scale-95 transition-transform h-8 w-8 p-0"
+                      onClick={() => onVoteWithComment(candidate.id)}
+                      title="Votar com justificativa"
+                    >
+                      💬
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={index === 0 ? "default" : "outline"}
+                      className="active:scale-95 transition-transform"
+                      onClick={() => onVote(candidate.id)}
+                    >
+                      +1
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
       </CardContent>
     </Card>
   );

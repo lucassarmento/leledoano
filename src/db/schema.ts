@@ -27,6 +27,7 @@ export const votes = pgTable("votes", {
   candidateId: uuid("candidate_id")
     .references(() => profiles.id)
     .notNull(),
+  comment: text("comment"), // Optional comment explaining the vote
   year: integer("year")
     .default(sql`EXTRACT(YEAR FROM now())::integer`)
     .notNull(),

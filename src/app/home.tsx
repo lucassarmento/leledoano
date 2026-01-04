@@ -4,18 +4,28 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Leaderboard } from "@/components/leaderboard";
 import { VoteFeed } from "@/components/vote-feed";
-import { VoteDialog } from "@/components/vote-dialog";
+import { WinnerHighlight } from "@/components/winner-highlight";
+import { ChartsDashboard } from "@/components/charts-dashboard";
+import { createClient } from "@/lib/supabase/client";
+import { Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { createClient } from "@/lib/supabase/client";
-import { toast, Toaster } from "sonner";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { VoteCommentDialog } from "@/components/vote-comment-dialog";
 
 type Candidate = {
   id: string;
@@ -27,6 +37,7 @@ type Candidate = {
 type VoteItem = {
   id: string;
   createdAt: string;
+  comment: string | null;
   voter: {
     id: string;
     name: string;
@@ -55,84 +66,14 @@ type HomePageProps = {
 export function HomePage({ leaderboard, feed, currentUser }: HomePageProps) {
   const [candidates, setCandidates] = useState(leaderboard);
   const [votes, setVotes] = useState(feed);
-  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
-    null
-  );
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [voting, setVoting] = useState(false);
+  const [rageCounter, setRageCounter] = useState(0);
+  const [lastVoteTime, setLastVoteTime] = useState(0);
+  const [penaltyTriggered, setPenaltyTriggered] = useState(false);
+  const [rageModalOpen, setRageModalOpen] = useState(false);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const router = useRouter();
   const supabase = createClient();
-
-  const handleVoteClick = (candidateId: string) => {
-    const candidate = candidates.find((c) => c.id === candidateId);
-    if (candidate) {
-      setSelectedCandidate(candidate);
-      setDialogOpen(true);
-    }
-  };
-
-  const handleConfirmVote = async () => {
-    if (!selectedCandidate) return;
-
-    setVoting(true);
-
-    try {
-      const response = await fetch("/api/votes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId: selectedCandidate.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || "Erro ao votar");
-        return;
-      }
-
-      // Update local state
-      setCandidates((prev) =>
-        prev
-          .map((c) =>
-            c.id === selectedCandidate.id
-              ? { ...c, voteCount: c.voteCount + 1 }
-              : c
-          )
-          .sort((a, b) => b.voteCount - a.voteCount)
-      );
-
-      // Add to feed
-      const newVote: VoteItem = {
-        id: data.vote.id,
-        createdAt: new Date().toISOString(),
-        voter: {
-          id: currentUser.id,
-          name: currentUser.name,
-          avatarUrl: currentUser.avatarUrl,
-        },
-        candidate: {
-          id: selectedCandidate.id,
-          name: selectedCandidate.name,
-          avatarUrl: selectedCandidate.avatarUrl,
-        },
-      };
-
-      setVotes((prev) => [newVote, ...prev]);
-
-      toast.success(`Voce votou em ${selectedCandidate.name}! 🗳️`);
-      setDialogOpen(false);
-    } catch {
-      toast.error("Erro ao votar. Tente novamente.");
-    } finally {
-      setVoting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
 
   const getInitials = (name: string) => {
     return name
@@ -143,88 +84,219 @@ export function HomePage({ leaderboard, feed, currentUser }: HomePageProps) {
       .slice(0, 2);
   };
 
+  // Add a vote (used for both regular votes and penalty votes)
+  const addVote = (candidateId: string, isPenalty = false, comment?: string) => {
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
+    // Optimistic update
+    setCandidates((prev) =>
+      prev
+        .map((c) =>
+          c.id === candidateId
+            ? { ...c, voteCount: c.voteCount + 1 }
+            : c
+        )
+        .sort((a, b) => b.voteCount - a.voteCount)
+    );
+
+    // Optimistic feed update
+    const tempVote: VoteItem = {
+      id: `temp-${Date.now()}-${Math.random()}`,
+      createdAt: new Date().toISOString(),
+      comment: comment || null,
+      voter: {
+        id: currentUser.id,
+        name: currentUser.name,
+        avatarUrl: currentUser.avatarUrl,
+      },
+      candidate: {
+        id: candidate.id,
+        name: candidate.name,
+        avatarUrl: candidate.avatarUrl,
+      },
+    };
+    setVotes((prev) => [tempVote, ...prev]);
+
+    // Fire and forget
+    fetch("/api/votes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidateId, comment: comment || undefined }),
+    }).catch(() => {
+      console.error("Vote failed");
+    });
+
+    if (isPenalty) {
+      setRageModalOpen(true);
+    }
+  };
+
+  // Open comment dialog for a candidate
+  const openCommentDialog = (candidateId: string) => {
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (candidate) {
+      setSelectedCandidate(candidate);
+      setCommentDialogOpen(true);
+    }
+  };
+
+  // Handle vote with comment
+  const handleVoteWithComment = (candidateId: string, comment: string) => {
+    addVote(candidateId, false, comment);
+  };
+
+  // Instant vote with rage click detection
+  const handleVote = (candidateId: string) => {
+    const now = Date.now();
+    const timeSinceLastVote = now - lastVoteTime;
+
+    // Reset counter if more than 2 seconds since last vote
+    if (timeSinceLastVote > 2000) {
+      setRageCounter(1);
+      setPenaltyTriggered(false);
+    } else {
+      setRageCounter((prev) => prev + 1);
+    }
+
+    setLastVoteTime(now);
+
+    // Add the vote
+    addVote(candidateId);
+
+    // Check for rage click penalty (5+ clicks within 2 seconds)
+    if (rageCounter >= 4 && !penaltyTriggered && timeSinceLastVote <= 2000) {
+      setPenaltyTriggered(true);
+      // Add penalty vote to the rage clicker
+      setTimeout(() => {
+        addVote(currentUser.id, true);
+      }, 300);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted">
+    <div className="min-h-screen bg-background">
       <Toaster position="top-center" />
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <h1 className="text-xl font-bold">🏆 Lele do Ano</h1>
+        <div className="w-full px-6 flex h-14 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🏆</span>
+            <h1 className="text-lg font-semibold">Lele do Ano 2026</h1>
+          </div>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" className="gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser.avatarUrl || undefined} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={currentUser.avatarUrl || undefined} alt={currentUser.name} />
                   <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline">{currentUser.name}</span>
               </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={currentUser.avatarUrl || undefined} />
-                    <AvatarFallback>
-                      {getInitials(currentUser.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{currentUser.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {currentUser.isAdmin ? "Administrador" : "Participante"}
-                    </p>
-                  </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {currentUser.isAdmin ? "Administrador" : "Participante"}
+                  </p>
                 </div>
-
-                {currentUser.isAdmin && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => router.push("/admin")}
-                  >
-                    Painel Admin
-                  </Button>
-                )}
-
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={handleLogout}
-                >
-                  Sair
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {currentUser.isAdmin && (
+                <DropdownMenuItem onClick={() => router.push("/admin")}>
+                  Painel Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={handleLogout}>
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto p-4 space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <Leaderboard
-            candidates={candidates}
-            currentUserId={currentUser.id}
-            onVote={handleVoteClick}
-            loading={voting}
-          />
-          <VoteFeed votes={votes} />
+      {/* Main Content - Bento Grid */}
+      <main className="w-full px-6 py-6">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          {/* Winner Highlight - Full width banner */}
+          <div className="col-span-full">
+            <WinnerHighlight
+              winner={candidates[0] || null}
+              onVote={handleVote}
+            />
+          </div>
+
+          {/* Leaderboard */}
+          <div className="md:col-span-1 lg:col-span-2 xl:col-span-3 h-[400px]">
+            <Leaderboard
+              candidates={candidates}
+              currentUserId={currentUser.id}
+              onVote={handleVote}
+              onVoteWithComment={openCommentDialog}
+            />
+          </div>
+
+          {/* Vote Feed */}
+          <div className="md:col-span-1 lg:col-span-2 xl:col-span-3 h-[400px]">
+            <VoteFeed votes={votes} />
+          </div>
+
+          {/* Charts Section - Bento tiles */}
+          <ChartsDashboard />
         </div>
       </main>
 
-      {/* Vote Dialog */}
-      <VoteDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+      {/* Rage Click Penalty Modal */}
+      <Dialog open={rageModalOpen} onOpenChange={setRageModalOpen}>
+        <DialogContent
+          className="sm:max-w-md text-center"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              <span className="text-6xl block mb-4">🐴</span>
+              <span className="text-2xl">CALMA LA ANIMAL!</span>
+            </DialogTitle>
+            <DialogDescription className="text-center text-lg pt-4">
+              Ta votando que nem um <strong className="text-foreground">ANIMAL</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6">
+            <div className="text-4xl mb-4">⬇️</div>
+            <div className="bg-destructive/10 border-2 border-destructive rounded-lg p-4">
+              <p className="text-xl font-bold text-destructive">
+                Tomou um voto pra voce!
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="lg"
+            onClick={() => setRageModalOpen(false)}
+            className="w-full"
+          >
+            Entendi, vou me acalmar 😔
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vote with Comment Dialog */}
+      <VoteCommentDialog
+        open={commentDialogOpen}
+        onOpenChange={setCommentDialogOpen}
         candidate={selectedCandidate}
-        onConfirm={handleConfirmVote}
-        loading={voting}
+        onVote={handleVoteWithComment}
       />
     </div>
   );

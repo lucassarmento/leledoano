@@ -15,11 +15,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
     }
 
-    const { candidateId } = await request.json();
+    const { candidateId, comment } = await request.json();
 
     if (!candidateId) {
       return NextResponse.json(
         { error: "Candidato obrigatorio" },
+        { status: 400 }
+      );
+    }
+
+    // Validate comment length if provided
+    if (comment && comment.length > 500) {
+      return NextResponse.json(
+        { error: "Comentario muito longo (max 500 caracteres)" },
         { status: 400 }
       );
     }
@@ -58,6 +66,7 @@ export async function POST(request: Request) {
       .values({
         voterId: user.id,
         candidateId,
+        comment: comment || null,
       })
       .returning();
 

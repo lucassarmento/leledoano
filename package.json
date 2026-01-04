@@ -17,8 +17,11 @@
     "supabase:link": "supabase link"
   },
   "dependencies": {
+    "@hugeicons/react": "^1.1.4",
+    "@hugeicons/react-pro": "^0.3.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-separator": "^1.1.8",
@@ -34,6 +37,7 @@
     "postgres": "^3.4.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^2.15.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0"
   },

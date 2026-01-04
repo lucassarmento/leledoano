@@ -97,6 +97,7 @@ export default async function Page() {
   const formattedFeed = feed.map((vote) => ({
     id: vote.id,
     createdAt: vote.createdAt.toISOString(),
+    comment: vote.comment,
     voter: {
       id: vote.voter.id,
       name: vote.voter.name,
