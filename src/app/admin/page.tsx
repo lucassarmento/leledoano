@@ -19,7 +19,11 @@ async function getAllowedPhones() {
   const result = await db.execute(
     sql`SELECT * FROM allowed_phones ORDER BY created_at DESC`
   );
-  return (result as { rows: unknown[] }).rows || [];
+  // Result can be array or object with rows property depending on driver
+  if (Array.isArray(result)) {
+    return result;
+  }
+  return (result as unknown as { rows: unknown[] }).rows || [];
 }
 
 async function getPastWinners() {
