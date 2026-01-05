@@ -22,6 +22,7 @@ type StatsData = {
   top5Candidates: string[];
   leaderboardRace: Record<string, string | number>[];
   leaderboardRaceCandidates: string[];
+  leaderboardRaceAvatars: (string | null)[];
 };
 
 export function ChartsDashboard() {
@@ -91,10 +92,11 @@ export function ChartsDashboard() {
       </div>
 
       {/* Row 2: Leaderboard Race - Full width */}
-      <div className="col-span-full h-[400px] overflow-hidden">
+      <div className="col-span-full h-[450px] overflow-hidden">
         <LeaderboardRaceChart
           data={stats.leaderboardRace}
           candidates={stats.leaderboardRaceCandidates}
+          avatars={stats.leaderboardRaceAvatars}
         />
       </div>
 

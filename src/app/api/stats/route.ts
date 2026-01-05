@@ -170,6 +170,11 @@ export async function GET() {
     (id) => profileMap.get(id)?.name || "Unknown"
   );
 
+  // Get avatar URLs for top 8 candidates (for chart display)
+  const top8CandidateAvatars = top8CandidateIds.map(
+    (id) => profileMap.get(id)?.avatarUrl || null
+  );
+
   // Sort all votes by timestamp (oldest first) for cumulative calculation
   const sortedVotes = [...allVotes]
     .filter((v) => v.createdAt)
@@ -223,5 +228,6 @@ export async function GET() {
     top5Candidates,
     leaderboardRace: leaderboardRaceData,
     leaderboardRaceCandidates: top8CandidateNames,
+    leaderboardRaceAvatars: top8CandidateAvatars,
   });
 }
