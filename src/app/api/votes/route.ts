@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { votes, profiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
+import { sendVoteNotificationSMS } from "@/lib/sms";
 
 export async function POST(request: Request) {
   try {
@@ -69,6 +70,19 @@ export async function POST(request: Request) {
         comment: comment || null,
       })
       .returning();
+
+    // Send SMS notification if vote has a comment
+    if (comment && candidateProfile[0].phone) {
+      sendVoteNotificationSMS({
+        recipientPhone: candidateProfile[0].phone,
+        recipientName: candidateProfile[0].name,
+        voterName: voterProfile[0].name,
+        comment,
+      }).catch((err) => {
+        // Log error but don't fail the vote
+        console.error("Failed to send vote notification SMS:", err);
+      });
+    }
 
     return NextResponse.json({
       success: true,
