@@ -36,7 +36,7 @@ export function VoteDistributionChart({ data }: VoteDistributionProps) {
   const totalVotes = data.reduce((sum, item) => sum + item.votes, 0);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <span>🥧</span>
@@ -44,8 +44,8 @@ export function VoteDistributionChart({ data }: VoteDistributionProps) {
         </CardTitle>
         <CardDescription>Quem ta levando mais votos</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-4">
-        <ChartContainer config={chartConfig} className="mx-auto h-full max-h-[280px]">
+      <CardContent className="flex-1 pb-4 overflow-hidden">
+        <ChartContainer config={chartConfig} className="mx-auto h-full max-h-[280px] overflow-hidden">
           <PieChart>
             <ChartTooltip
               content={
@@ -67,9 +67,9 @@ export function VoteDistributionChart({ data }: VoteDistributionProps) {
               dataKey="votes"
               nameKey="name"
               cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
+              cy="45%"
+              innerRadius={50}
+              outerRadius={85}
               paddingAngle={2}
             >
               {data.map((_, index) => (

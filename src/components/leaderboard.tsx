@@ -65,44 +65,44 @@ export function Leaderboard({
               {candidates.map((candidate, index) => (
                 <div
                   key={candidate.id}
-                  className={`flex items-center justify-between gap-4 p-4 hover:bg-muted/50 transition-colors ${
+                  className={`flex items-center gap-2 sm:gap-4 p-3 sm:p-4 hover:bg-muted/50 transition-colors ${
                     index === 0 ? "bg-amber-50/50" : ""
                   }`}
                 >
                   <Link
                     href={`/participant/${candidate.id}`}
-                    className="flex items-center gap-3 flex-1 min-w-0"
+                    className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0"
                   >
                     {/* Rank */}
-                    <div className="w-8 text-center font-bold text-lg shrink-0">
+                    <div className="w-6 sm:w-8 text-center font-bold text-base sm:text-lg shrink-0">
                       {getMedalEmoji(index) || `${index + 1}`}
                     </div>
 
                     {/* Avatar */}
-                    <Avatar className={`shrink-0 ${index === 0 ? "ring-2 ring-amber-400" : ""}`}>
+                    <Avatar className={`shrink-0 h-8 w-8 sm:h-10 sm:w-10 ${index === 0 ? "ring-2 ring-amber-400" : ""}`}>
                       <AvatarImage src={candidate.avatarUrl || undefined} alt={candidate.name} />
-                      <AvatarFallback>{getInitials(candidate.name)}</AvatarFallback>
+                      <AvatarFallback className="text-xs sm:text-sm">{getInitials(candidate.name)}</AvatarFallback>
                     </Avatar>
 
                     {/* Name and votes */}
                     <div className="min-w-0">
-                      <div className="font-medium truncate hover:underline">
+                      <div className="font-medium truncate hover:underline text-sm sm:text-base">
                         {candidate.name}
                         {candidate.id === currentUserId && (
-                          <span className="text-muted-foreground text-sm ml-1">(voce)</span>
+                          <span className="text-muted-foreground text-xs sm:text-sm ml-1">(voce)</span>
                         )}
                       </div>
                       <Badge
                         variant={index === 0 ? "default" : "secondary"}
-                        className={index === 0 ? "bg-amber-500 hover:bg-amber-600" : ""}
+                        className={`text-xs ${index === 0 ? "bg-amber-500 hover:bg-amber-600" : ""}`}
                       >
                         {candidate.voteCount} votos
                       </Badge>
                     </div>
                   </Link>
 
-                  {/* Vote Buttons */}
-                  <div className="flex items-center gap-1">
+                  {/* Vote Buttons - always visible */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -115,7 +115,7 @@ export function Leaderboard({
                     <Button
                       size="sm"
                       variant={index === 0 ? "default" : "outline"}
-                      className="active:scale-95 transition-transform"
+                      className="active:scale-95 transition-transform h-8 px-2 sm:px-3"
                       onClick={() => onVote(candidate.id)}
                     >
                       +1

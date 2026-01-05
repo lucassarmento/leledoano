@@ -6,6 +6,7 @@ import { Leaderboard } from "@/components/leaderboard";
 import { VoteFeed } from "@/components/vote-feed";
 import { WinnerHighlight } from "@/components/winner-highlight";
 import { ChartsDashboard } from "@/components/charts-dashboard";
+import { CastVote } from "@/components/cast-vote";
 import { createClient } from "@/lib/supabase/client";
 import { Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -229,14 +230,21 @@ export function HomePage({ leaderboard, feed, currentUser }: HomePageProps) {
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           {/* Winner Highlight - Full width banner */}
           <div className="col-span-full">
-            <WinnerHighlight
-              winner={candidates[0] || null}
+            <WinnerHighlight winner={candidates[0] || null} />
+          </div>
+
+          {/* Cast Vote Widget */}
+          <div className="md:col-span-1 lg:col-span-1 xl:col-span-2 h-[400px]">
+            <CastVote
+              candidates={candidates}
+              currentUserId={currentUser.id}
               onVote={handleVote}
+              onVoteWithComment={openCommentDialog}
             />
           </div>
 
           {/* Leaderboard */}
-          <div className="md:col-span-1 lg:col-span-2 xl:col-span-3 h-[400px]">
+          <div className="md:col-span-1 lg:col-span-2 xl:col-span-2 h-[400px]">
             <Leaderboard
               candidates={candidates}
               currentUserId={currentUser.id}
@@ -246,7 +254,7 @@ export function HomePage({ leaderboard, feed, currentUser }: HomePageProps) {
           </div>
 
           {/* Vote Feed */}
-          <div className="md:col-span-1 lg:col-span-2 xl:col-span-3 h-[400px]">
+          <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 h-[400px]">
             <VoteFeed votes={votes} />
           </div>
 

@@ -3,7 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 type Candidate = {
   id: string;
@@ -14,10 +13,9 @@ type Candidate = {
 
 type WinnerHighlightProps = {
   winner: Candidate | null;
-  onVote: (candidateId: string) => void;
 };
 
-export function WinnerHighlight({ winner, onVote }: WinnerHighlightProps) {
+export function WinnerHighlight({ winner }: WinnerHighlightProps) {
   if (!winner || winner.voteCount === 0) {
     return (
       <Card className="h-full">
@@ -79,15 +77,6 @@ export function WinnerHighlight({ winner, onVote }: WinnerHighlightProps) {
           <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-lg px-4 py-1.5 shadow-lg shrink-0">
             🗳️ {winner.voteCount} votos
           </Badge>
-
-          {/* Vote Button */}
-          <Button
-            size="lg"
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg active:scale-95 transition-transform shrink-0"
-            onClick={() => onVote(winner.id)}
-          >
-            +1 Voto
-          </Button>
         </div>
       </CardContent>
     </Card>

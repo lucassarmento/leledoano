@@ -8,7 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDistanceToNow } from "@/lib/date";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 type ParticipantData = {
@@ -64,12 +72,27 @@ export default function ParticipantPage() {
   const [data, setData] = useState<ParticipantData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Rage click state
+  const [rageCounter, setRageCounter] = useState(0);
+  const [lastVoteTime, setLastVoteTime] = useState(0);
+  const [penaltyTriggered, setPenaltyTriggered] = useState(false);
+  const [rageModalOpen, setRageModalOpen] = useState(false);
+  const [voting, setVoting] = useState(false);
 
   const id = params.id as string;
+  const supabase = createClient();
 
   useEffect(() => {
     async function fetchData() {
       try {
+        // Fetch current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUserId(user.id);
+        }
+
         const response = await fetch(`/api/participant/${id}`);
         if (!response.ok) {
           throw new Error("Failed to fetch");
@@ -86,7 +109,70 @@ export default function ParticipantPage() {
     if (id) {
       fetchData();
     }
-  }, [id]);
+  }, [id, supabase.auth]);
+
+  // Add a vote with optional penalty flag
+  const addVote = async (candidateId: string, isPenalty = false) => {
+    if (!data) return;
+
+    // Optimistic update
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stats: {
+          ...prev.stats,
+          votesReceived: prev.stats.votesReceived + 1,
+        },
+      };
+    });
+
+    // Fire and forget
+    fetch("/api/votes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidateId }),
+    }).catch(() => {
+      console.error("Vote failed");
+    });
+
+    if (isPenalty) {
+      setRageModalOpen(true);
+    }
+  };
+
+  // Handle vote with rage click detection
+  const handleVote = () => {
+    if (!data || voting) return;
+
+    setVoting(true);
+    const now = Date.now();
+    const timeSinceLastVote = now - lastVoteTime;
+
+    // Reset counter if more than 2 seconds since last vote
+    if (timeSinceLastVote > 2000) {
+      setRageCounter(1);
+      setPenaltyTriggered(false);
+    } else {
+      setRageCounter((prev) => prev + 1);
+    }
+
+    setLastVoteTime(now);
+
+    // Add the vote
+    addVote(data.profile.id);
+
+    // Check for rage click penalty (5+ clicks within 2 seconds)
+    if (rageCounter >= 4 && !penaltyTriggered && timeSinceLastVote <= 2000 && currentUserId) {
+      setPenaltyTriggered(true);
+      // Add penalty vote to the rage clicker
+      setTimeout(() => {
+        addVote(currentUserId, true);
+      }, 300);
+    }
+
+    setTimeout(() => setVoting(false), 100);
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -203,6 +289,16 @@ export default function ParticipantPage() {
                     <div className="text-xs text-muted-foreground">Esta semana</div>
                   </div>
                 </div>
+
+                {/* Vote Button */}
+                <Button
+                  size="lg"
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg active:scale-95 transition-transform"
+                  onClick={handleVote}
+                  disabled={voting}
+                >
+                  🗳️ +1 Voto
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -427,6 +523,42 @@ export default function ParticipantPage() {
           </Card>
         </div>
       </main>
+
+      {/* Rage Click Penalty Modal */}
+      <Dialog open={rageModalOpen} onOpenChange={setRageModalOpen}>
+        <DialogContent
+          className="sm:max-w-md text-center"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              <span className="text-6xl block mb-4">🐴</span>
+              <span className="text-2xl">CALMA LA ANIMAL!</span>
+            </DialogTitle>
+            <DialogDescription className="text-center text-lg pt-4">
+              Ta votando que nem um <strong className="text-foreground">ANIMAL</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6">
+            <div className="text-4xl mb-4">⬇️</div>
+            <div className="bg-destructive/10 border-2 border-destructive rounded-lg p-4">
+              <p className="text-xl font-bold text-destructive">
+                Tomou um voto pra voce!
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="lg"
+            onClick={() => setRageModalOpen(false)}
+            className="w-full"
+          >
+            Entendi, vou me acalmar 😔
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

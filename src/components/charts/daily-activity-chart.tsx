@@ -25,7 +25,7 @@ export function DailyActivityChart({ data }: DailyActivityProps) {
   const busiestDay = data.find((d) => d.votes === maxVotes)?.day || "";
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="flex items-center gap-2">
           <span>📅</span>
@@ -35,9 +35,9 @@ export function DailyActivityChart({ data }: DailyActivityProps) {
           Dia mais movimentado: <strong>{busiestDay}</strong>
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pb-4">
-        <ChartContainer config={chartConfig} className="h-full w-full">
-          <BarChart data={data} margin={{ left: 12, right: 12 }}>
+      <CardContent className="flex-1 pb-4 overflow-hidden">
+        <ChartContainer config={chartConfig} className="h-full w-full overflow-hidden">
+          <BarChart data={data} margin={{ left: 12, right: 20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
             <YAxis tickLine={false} axisLine={false} tickMargin={8} />

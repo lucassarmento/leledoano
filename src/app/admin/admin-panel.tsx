@@ -58,11 +58,13 @@ export function AdminPanel({ allowedPhones, pastWinners }: AdminPanelProps) {
   const router = useRouter();
 
   const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    if (digits.length > 0 && !digits.startsWith("55")) {
-      return `+55${digits}`;
+    // If user provided a + prefix, respect their country code
+    if (value.startsWith("+")) {
+      return value.replace(/[^\d+]/g, "");
     }
-    return `+${digits}`;
+    // Otherwise assume Brazilian number
+    const digits = value.replace(/\D/g, "");
+    return `+55${digits}`;
   };
 
   const handleAddPhone = async (e: React.FormEvent) => {
