@@ -25,7 +25,8 @@ export async function sendVoteNotificationSMS({
   }
 
   try {
-    const message = `Opa ${recipientName}! Voce recebeu um voto de ${voterName} com a seguinte justificativa: "${comment}"`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://leledoano.vercel.app";
+    const message = `GENGIS KHAN INFORMA, votaram em VOCE e ainda meteram: ${comment}\n\nse quer saber quem foi o falso amigo clica aqui ${appUrl}`;
 
     await client.messages.create({
       body: message,
