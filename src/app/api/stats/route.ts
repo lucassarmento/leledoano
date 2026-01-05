@@ -159,6 +159,63 @@ export async function GET() {
     .sort((a, b) => b.votes - a.votes)
     .slice(0, 5);
 
+  // 7. Leaderboard Race (cumulative votes over time) - weighted
+  // Get top 8 candidates for the race chart
+  const top8CandidateIds = Array.from(voteCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([id]) => id);
+
+  const top8CandidateNames = top8CandidateIds.map(
+    (id) => profileMap.get(id)?.name || "Unknown"
+  );
+
+  // Sort all votes by date (oldest first) for cumulative calculation
+  const sortedVotes = [...allVotes]
+    .filter((v) => v.createdAt)
+    .sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
+
+  // Build cumulative data by date
+  const cumulativeByDate = new Map<string, Map<string, number>>();
+  const cumulativeTotals = new Map<string, number>();
+  const allDates = new Set<string>();
+
+  // Initialize totals for all top candidates
+  top8CandidateIds.forEach((id) => cumulativeTotals.set(id, 0));
+
+  sortedVotes.forEach((vote) => {
+    const date = new Date(vote.createdAt!).toISOString().split("T")[0];
+    allDates.add(date);
+
+    // Update cumulative total for this candidate
+    if (top8CandidateIds.includes(vote.candidateId)) {
+      const current = cumulativeTotals.get(vote.candidateId) || 0;
+      cumulativeTotals.set(vote.candidateId, current + getVoteWeight(vote));
+    }
+
+    // Store the cumulative state for this date
+    if (!cumulativeByDate.has(date)) {
+      cumulativeByDate.set(date, new Map());
+    }
+    const dateState = cumulativeByDate.get(date)!;
+    top8CandidateIds.forEach((id) => {
+      dateState.set(id, cumulativeTotals.get(id) || 0);
+    });
+  });
+
+  // Convert to array format for the chart
+  const leaderboardRaceData = Array.from(allDates)
+    .sort()
+    .map((date) => {
+      const dateState = cumulativeByDate.get(date)!;
+      const entry: Record<string, string | number> = { date };
+      top8CandidateIds.forEach((id, index) => {
+        const name = top8CandidateNames[index];
+        entry[name] = dateState.get(id) || 0;
+      });
+      return entry;
+    });
+
   return NextResponse.json({
     voteDistribution,
     votesOverTime: votesOverTimeData,
@@ -167,5 +224,7 @@ export async function GET() {
     dailyActivity,
     hotStreak,
     top5Candidates,
+    leaderboardRace: leaderboardRaceData,
+    leaderboardRaceCandidates: top8CandidateNames,
   });
 }

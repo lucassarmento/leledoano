@@ -4,3 +4,4 @@ export { TopVotersChart } from "./top-voters-chart";
 export { WhoVotesForWhoChart } from "./who-votes-for-who-chart";
 export { DailyActivityChart } from "./daily-activity-chart";
 export { HotStreakChart } from "./hot-streak-chart";
+export { LeaderboardRaceChart } from "./leaderboard-race-chart";

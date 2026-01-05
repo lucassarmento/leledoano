@@ -8,6 +8,7 @@ import {
   WhoVotesForWhoChart,
   DailyActivityChart,
   HotStreakChart,
+  LeaderboardRaceChart,
 } from "@/components/charts";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -19,6 +20,8 @@ type StatsData = {
   dailyActivity: { day: string; votes: number }[];
   hotStreak: { name: string; votes: number }[];
   top5Candidates: string[];
+  leaderboardRace: Record<string, string | number>[];
+  leaderboardRaceCandidates: string[];
 };
 
 export function ChartsDashboard() {
@@ -87,7 +90,15 @@ export function ChartsDashboard() {
         <TopVotersChart data={stats.topVoters} />
       </div>
 
-      {/* Row 2: Votes Over Time + Daily Activity */}
+      {/* Row 2: Leaderboard Race - Full width */}
+      <div className="col-span-full h-[400px] overflow-hidden">
+        <LeaderboardRaceChart
+          data={stats.leaderboardRace}
+          candidates={stats.leaderboardRaceCandidates}
+        />
+      </div>
+
+      {/* Row 3: Votes Over Time + Daily Activity */}
       <div className="col-span-full lg:col-span-2 xl:col-span-4 h-[350px] overflow-hidden">
         <VotesOverTimeChart data={stats.votesOverTime} candidates={stats.top5Candidates} />
       </div>
@@ -96,7 +107,7 @@ export function ChartsDashboard() {
         <DailyActivityChart data={stats.dailyActivity} />
       </div>
 
-      {/* Row 3: Who Votes For Who - Full width */}
+      {/* Row 4: Who Votes For Who - Full width */}
       <div className="col-span-full h-[400px]">
         <WhoVotesForWhoChart data={stats.whoVotesForWho} />
       </div>
