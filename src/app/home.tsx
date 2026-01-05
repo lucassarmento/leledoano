@@ -90,12 +90,15 @@ export function HomePage({ leaderboard, feed, currentUser }: HomePageProps) {
     const candidate = candidates.find((c) => c.id === candidateId);
     if (!candidate) return;
 
+    // Weighted voting: comments = 5 points, no comment = 1 point
+    const voteWeight = comment ? 5 : 1;
+
     // Optimistic update
     setCandidates((prev) =>
       prev
         .map((c) =>
           c.id === candidateId
-            ? { ...c, voteCount: c.voteCount + 1 }
+            ? { ...c, voteCount: c.voteCount + voteWeight }
             : c
         )
         .sort((a, b) => b.voteCount - a.voteCount)

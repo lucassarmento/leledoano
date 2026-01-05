@@ -8,12 +8,13 @@ import { HomePage } from "./home";
 async function getLeaderboard() {
   const currentYear = new Date().getFullYear();
 
+  // Weighted voting: comments = 5 points, no comment = 1 point
   return db
     .select({
       id: profiles.id,
       name: profiles.name,
       avatarUrl: profiles.avatarUrl,
-      voteCount: sql<number>`COALESCE(COUNT(${votes.id}), 0)::int`.as(
+      voteCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int`.as(
         "vote_count"
       ),
     })

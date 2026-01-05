@@ -29,11 +29,11 @@ export async function POST(request: Request) {
     const { year } = await request.json();
     const targetYear = year || new Date().getFullYear();
 
-    // Get the winner (most votes)
+    // Get the winner (most votes) - weighted: comments = 5 points, no comment = 1 point
     const leaderboard = await db
       .select({
         userId: profiles.id,
-        voteCount: sql<number>`COUNT(${votes.id})::int`.as("vote_count"),
+        voteCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int`.as("vote_count"),
       })
       .from(profiles)
       .leftJoin(
