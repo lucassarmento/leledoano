@@ -16,15 +16,16 @@ type LeaderboardRaceProps = {
   candidates: string[];
 };
 
+// Explicit colors that will always show - no CSS variables
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(280 70% 50%)",
-  "hsl(200 70% 50%)",
-  "hsl(340 70% 50%)",
+  "#e11d48", // rose-600
+  "#2563eb", // blue-600
+  "#16a34a", // green-600
+  "#ea580c", // orange-600
+  "#9333ea", // purple-600
+  "#0891b2", // cyan-600
+  "#ca8a04", // yellow-600
+  "#dc2626", // red-600
 ];
 
 export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps) {
@@ -35,6 +36,28 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
     };
     return acc;
   }, {} as ChartConfig);
+
+  // Format timestamp for display
+  const formatTimestamp = (value: number | string) => {
+    const timestamp = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (!timestamp || isNaN(timestamp)) return '';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  };
+
+  const formatTooltipDate = (value: number | string) => {
+    const timestamp = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (!timestamp || isNaN(timestamp)) return '';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <Card className="h-full flex flex-col overflow-hidden">
@@ -59,10 +82,7 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => {
-                const date = new Date(value);
-                return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-              }}
+              tickFormatter={formatTimestamp}
             />
             <YAxis
               tickLine={false}
@@ -73,15 +93,7 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "long",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-                  }}
+                  labelFormatter={formatTooltipDate}
                   indicator="dot"
                 />
               }
@@ -94,7 +106,7 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4 }}
+                activeDot={{ r: 4, fill: COLORS[index % COLORS.length] }}
               />
             ))}
             <ChartLegend content={<ChartLegendContent />} />
