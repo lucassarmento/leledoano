@@ -36,15 +36,6 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
     return acc;
   }, {} as ChartConfig);
 
-  // Get latest values for each candidate to show current standings
-  const latestData = data[data.length - 1] || {};
-  const standings = candidates
-    .map((name) => ({
-      name,
-      value: (latestData[name] as number) || 0,
-    }))
-    .sort((a, b) => b.value - a.value);
-
   return (
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2 flex-shrink-0">
@@ -61,7 +52,10 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
           <LineChart data={data} margin={{ top: 10, left: 40, right: 20, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="timestamp"
+              type="number"
+              scale="time"
+              domain={['dataMin', 'dataMax']}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
@@ -80,24 +74,22 @@ export function LeaderboardRaceChart({ data, candidates }: LeaderboardRaceProps)
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("pt-BR", {
+                    const date = new Date(value);
+                    return date.toLocaleDateString("pt-BR", {
                       day: "2-digit",
                       month: "long",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     });
                   }}
-                  formatter={(value, name) => (
-                    <div className="flex items-center gap-2">
-                      <span>{name}</span>
-                      <span className="font-bold">{value} pts</span>
-                    </div>
-                  )}
+                  indicator="dot"
                 />
               }
             />
             {candidates.map((name, index) => (
               <Line
                 key={name}
-                type="monotone"
+                type="stepAfter"
                 dataKey={name}
                 stroke={COLORS[index % COLORS.length]}
                 strokeWidth={2}

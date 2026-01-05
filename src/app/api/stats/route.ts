@@ -159,7 +159,7 @@ export async function GET() {
     .sort((a, b) => b.votes - a.votes)
     .slice(0, 5);
 
-  // 7. Leaderboard Race (cumulative votes over time) - weighted
+  // 7. Leaderboard Race (cumulative votes over time by timestamp) - weighted
   // Get top 8 candidates for the race chart
   const top8CandidateIds = Array.from(voteCounts.entries())
     .sort((a, b) => b[1] - a[1])
@@ -170,51 +170,48 @@ export async function GET() {
     (id) => profileMap.get(id)?.name || "Unknown"
   );
 
-  // Sort all votes by date (oldest first) for cumulative calculation
+  // Sort all votes by timestamp (oldest first) for cumulative calculation
   const sortedVotes = [...allVotes]
     .filter((v) => v.createdAt)
     .sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
 
-  // Build cumulative data by date
-  const cumulativeByDate = new Map<string, Map<string, number>>();
+  // Build cumulative data by timestamp - each vote creates a data point
   const cumulativeTotals = new Map<string, number>();
-  const allDates = new Set<string>();
 
-  // Initialize totals for all top candidates
+  // Initialize totals for all top candidates at 0
   top8CandidateIds.forEach((id) => cumulativeTotals.set(id, 0));
 
-  sortedVotes.forEach((vote) => {
-    const date = new Date(vote.createdAt!).toISOString().split("T")[0];
-    allDates.add(date);
+  // Create initial data point with all zeros
+  const leaderboardRaceData: Record<string, string | number>[] = [];
 
-    // Update cumulative total for this candidate
+  // Add a starting point before first vote (if there are votes)
+  if (sortedVotes.length > 0) {
+    const firstVoteTime = new Date(sortedVotes[0].createdAt!).getTime() - 1000;
+    const startEntry: Record<string, string | number> = {
+      timestamp: firstVoteTime
+    };
+    top8CandidateIds.forEach((id, index) => {
+      startEntry[top8CandidateNames[index]] = 0;
+    });
+    leaderboardRaceData.push(startEntry);
+  }
+
+  sortedVotes.forEach((vote) => {
+    const timestamp = new Date(vote.createdAt!).getTime();
+
+    // Update cumulative total for this candidate (if in top 8)
     if (top8CandidateIds.includes(vote.candidateId)) {
       const current = cumulativeTotals.get(vote.candidateId) || 0;
       cumulativeTotals.set(vote.candidateId, current + getVoteWeight(vote));
     }
 
-    // Store the cumulative state for this date
-    if (!cumulativeByDate.has(date)) {
-      cumulativeByDate.set(date, new Map());
-    }
-    const dateState = cumulativeByDate.get(date)!;
-    top8CandidateIds.forEach((id) => {
-      dateState.set(id, cumulativeTotals.get(id) || 0);
+    // Create data point with current cumulative state for ALL candidates
+    const entry: Record<string, string | number> = { timestamp };
+    top8CandidateIds.forEach((id, index) => {
+      entry[top8CandidateNames[index]] = cumulativeTotals.get(id) || 0;
     });
+    leaderboardRaceData.push(entry);
   });
-
-  // Convert to array format for the chart
-  const leaderboardRaceData = Array.from(allDates)
-    .sort()
-    .map((date) => {
-      const dateState = cumulativeByDate.get(date)!;
-      const entry: Record<string, string | number> = { date };
-      top8CandidateIds.forEach((id, index) => {
-        const name = top8CandidateNames[index];
-        entry[name] = dateState.get(id) || 0;
-      });
-      return entry;
-    });
 
   return NextResponse.json({
     voteDistribution,
