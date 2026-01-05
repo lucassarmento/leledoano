@@ -25,23 +25,23 @@ export async function GET(
       );
     }
 
-    // Get votes received count
+    // Get votes received count (weighted: comments = 5, no comment = 1)
     const [votesReceivedResult] = await db
-      .select({ count: sql<number>`COUNT(*)::int` })
+      .select({ count: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int` })
       .from(votes)
       .where(and(eq(votes.candidateId, id), eq(votes.year, currentYear)));
     const votesReceived = votesReceivedResult?.count || 0;
 
-    // Get votes given count
+    // Get votes given count (weighted: comments = 5, no comment = 1)
     const [votesGivenResult] = await db
-      .select({ count: sql<number>`COUNT(*)::int` })
+      .select({ count: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int` })
       .from(votes)
       .where(and(eq(votes.voterId, id), eq(votes.year, currentYear)));
     const votesGiven = votesGivenResult?.count || 0;
 
-    // Get votes this week
+    // Get votes this week (weighted: comments = 5, no comment = 1)
     const [votesThisWeekResult] = await db
-      .select({ count: sql<number>`COUNT(*)::int` })
+      .select({ count: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int` })
       .from(votes)
       .where(
         and(
@@ -52,11 +52,11 @@ export async function GET(
       );
     const votesThisWeek = votesThisWeekResult?.count || 0;
 
-    // Get current rank
+    // Get current rank (weighted: comments = 5, no comment = 1)
     const leaderboard = await db
       .select({
         id: profiles.id,
-        voteCount: sql<number>`COALESCE(COUNT(${votes.id}), 0)::int`,
+        voteCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int`,
       })
       .from(profiles)
       .leftJoin(
@@ -64,38 +64,38 @@ export async function GET(
         sql`${votes.candidateId} = ${profiles.id} AND ${votes.year} = ${currentYear}`
       )
       .groupBy(profiles.id)
-      .orderBy(desc(sql`COALESCE(COUNT(${votes.id}), 0)`));
+      .orderBy(desc(sql`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)`));
 
     const rank = leaderboard.findIndex((p) => p.id === id) + 1;
 
-    // Get who votes for this person (top haters)
+    // Get who votes for this person (top haters) - weighted
     const topHaters = await db
       .select({
         oderId: profiles.id,
         voterName: profiles.name,
         voterAvatar: profiles.avatarUrl,
-        count: sql<number>`COUNT(*)::int`,
+        count: sql<number>`SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END)::int`,
       })
       .from(votes)
       .innerJoin(profiles, eq(votes.voterId, profiles.id))
       .where(and(eq(votes.candidateId, id), eq(votes.year, currentYear)))
       .groupBy(profiles.id, profiles.name, profiles.avatarUrl)
-      .orderBy(desc(sql`COUNT(*)`))
+      .orderBy(desc(sql`SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END)`))
       .limit(10);
 
-    // Get who this person votes for (targets)
+    // Get who this person votes for (targets) - weighted
     const topTargets = await db
       .select({
         targetId: profiles.id,
         targetName: profiles.name,
         targetAvatar: profiles.avatarUrl,
-        count: sql<number>`COUNT(*)::int`,
+        count: sql<number>`SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END)::int`,
       })
       .from(votes)
       .innerJoin(profiles, eq(votes.candidateId, profiles.id))
       .where(and(eq(votes.voterId, id), eq(votes.year, currentYear)))
       .groupBy(profiles.id, profiles.name, profiles.avatarUrl)
-      .orderBy(desc(sql`COUNT(*)`))
+      .orderBy(desc(sql`SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END)`))
       .limit(10);
 
     // Get recent activity (votes involving this person)
@@ -112,16 +112,16 @@ export async function GET(
       },
     });
 
-    // Get mutual rivalries (people who vote for each other)
+    // Get mutual rivalries (people who vote for each other) - weighted
     const mutualRivalries = await db.execute(sql`
       WITH my_votes AS (
-        SELECT candidate_id, COUNT(*) as given
+        SELECT candidate_id, SUM(CASE WHEN comment IS NOT NULL THEN 5 ELSE 1 END) as given
         FROM votes
         WHERE voter_id = ${id} AND year = ${currentYear}
         GROUP BY candidate_id
       ),
       votes_on_me AS (
-        SELECT voter_id, COUNT(*) as received
+        SELECT voter_id, SUM(CASE WHEN comment IS NOT NULL THEN 5 ELSE 1 END) as received
         FROM votes
         WHERE candidate_id = ${id} AND year = ${currentYear}
         GROUP BY voter_id
@@ -141,11 +141,11 @@ export async function GET(
       LIMIT 5
     `);
 
-    // Get most active voting day
+    // Get most active voting day - weighted
     const mostActiveDay = await db.execute(sql`
       SELECT
         TO_CHAR(created_at, 'Day') as day_name,
-        COUNT(*) as count
+        SUM(CASE WHEN comment IS NOT NULL THEN 5 ELSE 1 END) as count
       FROM votes
       WHERE (voter_id = ${id} OR candidate_id = ${id}) AND year = ${currentYear}
       GROUP BY TO_CHAR(created_at, 'Day'), EXTRACT(DOW FROM created_at)

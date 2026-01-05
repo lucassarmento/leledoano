@@ -18,12 +18,13 @@ export async function GET() {
     const currentYear = new Date().getFullYear();
 
     // Get all profiles with their vote counts for the current year
+    // Votes with comments are worth 5 points, without comments worth 1 point
     const leaderboard = await db
       .select({
         id: profiles.id,
         name: profiles.name,
         avatarUrl: profiles.avatarUrl,
-        voteCount: sql<number>`COALESCE(COUNT(${votes.id}), 0)::int`.as(
+        voteCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.comment} IS NOT NULL THEN 5 ELSE 1 END), 0)::int`.as(
           "vote_count"
         ),
       })

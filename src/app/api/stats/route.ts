@@ -19,22 +19,26 @@ export async function GET() {
   const allProfiles = await db.select().from(profiles);
   const profileMap = new Map(allProfiles.map((p) => [p.id, p]));
 
-  // Get all votes with details
+  // Get all votes with details (including comment for weighted scoring)
   const allVotes = await db
     .select({
       id: votes.id,
       voterId: votes.voterId,
       candidateId: votes.candidateId,
       createdAt: votes.createdAt,
+      comment: votes.comment,
     })
     .from(votes)
     .orderBy(desc(votes.createdAt));
 
-  // 1. Vote Distribution (for pie chart)
+  // Helper function to get vote weight (5 for comments, 1 for no comment)
+  const getVoteWeight = (vote: { comment: string | null }) => vote.comment ? 5 : 1;
+
+  // 1. Vote Distribution (for pie chart) - weighted by comments
   const voteCounts = new Map<string, number>();
   allVotes.forEach((vote) => {
     const current = voteCounts.get(vote.candidateId) || 0;
-    voteCounts.set(vote.candidateId, current + 1);
+    voteCounts.set(vote.candidateId, current + getVoteWeight(vote));
   });
 
   const voteDistribution = Array.from(voteCounts.entries())
@@ -63,7 +67,7 @@ export async function GET() {
         votesOverTime.set(date, new Map());
       }
       const dayVotes = votesOverTime.get(date)!;
-      dayVotes.set(candidateName, (dayVotes.get(candidateName) || 0) + 1);
+      dayVotes.set(candidateName, (dayVotes.get(candidateName) || 0) + getVoteWeight(vote));
     });
 
   // Get top 5 candidates for the line chart
@@ -83,11 +87,11 @@ export async function GET() {
       return entry;
     });
 
-  // 3. Top Voters (who casts the most votes)
+  // 3. Top Voters (who casts the most votes) - weighted by comments
   const voterCounts = new Map<string, number>();
   allVotes.forEach((vote) => {
     const current = voterCounts.get(vote.voterId) || 0;
-    voterCounts.set(vote.voterId, current + 1);
+    voterCounts.set(vote.voterId, current + getVoteWeight(vote));
   });
 
   const topVoters = Array.from(voterCounts.entries())
@@ -98,7 +102,7 @@ export async function GET() {
     .sort((a, b) => b.votes - a.votes)
     .slice(0, 10);
 
-  // 4. Who Votes For Who (matrix)
+  // 4. Who Votes For Who (matrix) - weighted by comments
   const voteMatrix: Record<string, Record<string, number>> = {};
   allVotes.forEach((vote) => {
     const voterName = profileMap.get(vote.voterId)?.name || "Unknown";
@@ -108,7 +112,7 @@ export async function GET() {
       voteMatrix[voterName] = {};
     }
     voteMatrix[voterName][candidateName] =
-      (voteMatrix[voterName][candidateName] || 0) + 1;
+      (voteMatrix[voterName][candidateName] || 0) + getVoteWeight(vote);
   });
 
   // Convert to array format for heatmap
@@ -119,14 +123,14 @@ export async function GET() {
     });
   });
 
-  // 5. Daily Activity (votes per day of week)
+  // 5. Daily Activity (votes per day of week) - weighted by comments
   const dayOfWeekCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
   const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
   allVotes.forEach((vote) => {
     if (vote.createdAt) {
       const day = new Date(vote.createdAt).getDay();
-      dayOfWeekCounts[day]++;
+      dayOfWeekCounts[day] += getVoteWeight(vote);
     }
   });
 
@@ -135,7 +139,7 @@ export async function GET() {
     votes: dayOfWeekCounts[index],
   }));
 
-  // 6. Hot Streak (last 7 days top recipients)
+  // 6. Hot Streak (last 7 days top recipients) - weighted by comments
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -144,7 +148,7 @@ export async function GET() {
     .filter((v) => v.createdAt && new Date(v.createdAt) >= sevenDaysAgo)
     .forEach((vote) => {
       const current = recentVoteCounts.get(vote.candidateId) || 0;
-      recentVoteCounts.set(vote.candidateId, current + 1);
+      recentVoteCounts.set(vote.candidateId, current + getVoteWeight(vote));
     });
 
   const hotStreak = Array.from(recentVoteCounts.entries())
